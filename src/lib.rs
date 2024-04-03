@@ -28,8 +28,11 @@ impl AppData {
         let appdata_path = Self::appdata_path();
         if appdata_path.exists() {
             let appdata_toml = std::fs::read_to_string(appdata_path)?;
-            let appdata =
-                toml::from_str::<AppData>(&appdata_toml).map_err(|_| AppDataError::BrokenConfig)?;
+            println!("appdata_toml = {appdata_toml:?}");
+            let appdata = toml::from_str::<AppData>(&appdata_toml).map_err(|err| {
+                eprintln!("{err:?}");
+                AppDataError::BrokenConfig
+            })?;
             Ok(appdata)
         } else {
             Ok(Self::default())
