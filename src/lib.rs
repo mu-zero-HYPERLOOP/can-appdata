@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 pub type Result<T> = std::result::Result<T, AppDataError>;
+
+#[derive(Debug)]
 pub enum AppDataError {
     BrokenConfig,
     Io(std::io::Error),
@@ -27,8 +29,8 @@ impl AppData {
         let appdata_path = Self::appdata_path();
         if appdata_path.exists() {
             let appdata_toml = std::fs::read_to_string(appdata_path)?;
-            let mut appdata =
-                toml::from_str::<AppData>(&appdata_toml).map_err(|err| AppDataError::BrokenConfig)?;
+            let appdata =
+                toml::from_str::<AppData>(&appdata_toml).map_err(|_| AppDataError::BrokenConfig)?;
             Ok(appdata)
         } else {
             Ok(Self::default())
