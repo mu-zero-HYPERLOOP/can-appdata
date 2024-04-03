@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +9,6 @@ pub enum AppDataError {
     BrokenConfig,
     Io(std::io::Error),
 }
-
 
 impl From<std::io::Error> for AppDataError {
     fn from(value: std::io::Error) -> Self {
@@ -37,7 +36,7 @@ impl AppData {
         }
     }
 
-    pub fn set_config_path(&mut self, path : Option<PathBuf>) -> Result<()>{
+    pub fn set_config_path(&mut self, path: Option<PathBuf>) -> Result<()> {
         let new_config_path = match path {
             Some(path) => Some(std::fs::canonicalize(path)?),
             None => None,
@@ -59,14 +58,29 @@ impl AppData {
         appdata_path.push("canzero.toml");
         appdata_path
     }
+
+    fn rec_create_directories(dir: &Path) -> Result<()> {
+        if !dir.exists() {
+            if let Some(parent) = dir.parent() {
+                Self::rec_create_directories(parent)?;
+            }
+            std::fs::create_dir(dir)?;
+        }
+        Ok(())
+    }
 }
 
 impl Drop for AppData {
     fn drop(&mut self) {
         if self.change_flag {
             let appdata_path = Self::appdata_path();
+            if let Some(parent) = appdata_path.parent() {
+                Self::rec_create_directories(parent)
+                    .expect(&format!("Failed to create config directories {parent:?}"));
+            }
             let appdata_toml = toml::to_string_pretty(self).unwrap();
-            std::fs::write(appdata_path, &appdata_toml).expect("Failed to write to {appdata_path}");
+            std::fs::write(appdata_path.clone(), &appdata_toml)
+                .expect(&format!("Failed to write to {appdata_path:?}"));
         }
     }
 }
