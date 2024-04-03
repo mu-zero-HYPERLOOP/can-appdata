@@ -38,10 +38,14 @@ impl AppData {
     }
 
     pub fn set_config_path(&mut self, path : Option<PathBuf>) -> Result<()>{
-        self.config_path = match path {
+        let new_config_path = match path {
             Some(path) => Some(std::fs::canonicalize(path)?),
             None => None,
         };
+        if new_config_path != self.config_path {
+            self.config_path = new_config_path;
+            self.change_flag = true;
+        }
         Ok(())
     }
 
