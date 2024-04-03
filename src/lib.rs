@@ -16,10 +16,15 @@ impl From<std::io::Error> for AppDataError {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct AppData {
-    #[serde(skip_serializing)]
-    change_flag: bool, //defaults to false
+    change_flag : bool,
+    raw : AppDataRaw,
+}
+
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct AppDataRaw {
     config_path: Option<PathBuf>,
 }
 
@@ -29,11 +34,14 @@ impl AppData {
         if appdata_path.exists() {
             let appdata_toml = std::fs::read_to_string(appdata_path)?;
             println!("appdata_toml = {appdata_toml:?}");
-            let appdata = toml::from_str::<AppData>(&appdata_toml).map_err(|err| {
+            let appdata_raw = toml::from_str::<AppDataRaw>(&appdata_toml).map_err(|err| {
                 eprintln!("{err:?}");
                 AppDataError::BrokenConfig
             })?;
-            Ok(appdata)
+            Ok(AppData{
+                change_flag : false,
+                raw : appdata_raw,
+            })
         } else {
             Ok(Self::default())
         }
@@ -44,15 +52,15 @@ impl AppData {
             Some(path) => Some(std::fs::canonicalize(path)?),
             None => None,
         };
-        if new_config_path != self.config_path {
-            self.config_path = new_config_path;
+        if new_config_path != self.raw.config_path {
+            self.raw.config_path = new_config_path;
             self.change_flag = true;
         }
         Ok(())
     }
 
     pub fn get_config_path(&self) -> Option<&PathBuf> {
-        self.config_path.as_ref()
+        self.raw.config_path.as_ref()
     }
 
     fn appdata_path() -> PathBuf {
@@ -81,7 +89,7 @@ impl Drop for AppData {
                 Self::rec_create_directories(parent)
                     .expect(&format!("Failed to create config directories {parent:?}"));
             }
-            let appdata_toml = toml::to_string_pretty(self).unwrap();
+            let appdata_toml = toml::to_string_pretty(&self.raw).unwrap();
             std::fs::write(appdata_path.clone(), &appdata_toml)
                 .expect(&format!("Failed to write to {appdata_path:?}"));
         }
@@ -91,8 +99,10 @@ impl Drop for AppData {
 impl Default for AppData {
     fn default() -> Self {
         Self {
-            config_path: None,
             change_flag: false,
+            raw : AppDataRaw {
+                config_path : None,
+            }
         }
     }
 }
