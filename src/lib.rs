@@ -19,13 +19,13 @@ impl From<std::io::Error> for AppDataError {
 
 #[derive(Clone)]
 pub struct AppData {
-    change_flag : bool,
-    raw : AppDataRaw,
+    config_change_flag : bool,
+    config : AppDataConfig,
 }
 
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct AppDataRaw {
+pub struct AppDataConfig {
     config_path: Option<PathBuf>,
 }
 
@@ -34,17 +34,23 @@ impl AppData {
         let appdata_path = Self::appdata_path();
         if appdata_path.exists() {
             let appdata_toml = std::fs::read_to_string(appdata_path)?;
-            let appdata_raw = toml::from_str::<AppDataRaw>(&appdata_toml).map_err(|err| {
+            let appdata_raw = toml::from_str::<AppDataConfig>(&appdata_toml).map_err(|err| {
                 eprintln!("{err:?}");
                 AppDataError::BrokenConfig
             })?;
             Ok(AppData{
-                change_flag : false,
-                raw : appdata_raw,
+                config_change_flag : false,
+                config : appdata_raw,
             })
         } else {
             Ok(Self::default())
         }
+    }
+
+    pub fn dir() -> PathBuf{
+        let mut appdata_path = dirs::home_dir().expect("No home directory avaiable on the OS");
+        appdata_path.push(".canzero");
+        appdata_path
     }
 
     pub fn set_config_path(&mut self, path: Option<PathBuf>) -> Result<()> {
@@ -57,15 +63,15 @@ impl AppData {
                 return Err(AppDataError::InvalidConfigPath)
             }
         }
-        if new_config_path != self.raw.config_path {
-            self.raw.config_path = new_config_path;
-            self.change_flag = true;
+        if new_config_path != self.config.config_path {
+            self.config.config_path = new_config_path;
+            self.config_change_flag = true;
         }
         Ok(())
     }
 
     pub fn get_config_path(&self) -> Option<&PathBuf> {
-        self.raw.config_path.as_ref()
+        self.config.config_path.as_ref()
     }
 
     fn appdata_path() -> PathBuf {
@@ -88,13 +94,13 @@ impl AppData {
 
 impl Drop for AppData {
     fn drop(&mut self) {
-        if self.change_flag {
+        if self.config_change_flag {
             let appdata_path = Self::appdata_path();
             if let Some(parent) = appdata_path.parent() {
                 Self::rec_create_directories(parent)
                     .expect(&format!("Failed to create config directories {parent:?}"));
             }
-            let appdata_toml = toml::to_string_pretty(&self.raw).unwrap();
+            let appdata_toml = toml::to_string_pretty(&self.config).unwrap();
             std::fs::write(appdata_path.clone(), &appdata_toml)
                 .expect(&format!("Failed to write to {appdata_path:?}"));
         }
@@ -104,8 +110,8 @@ impl Drop for AppData {
 impl Default for AppData {
     fn default() -> Self {
         Self {
-            change_flag: false,
-            raw : AppDataRaw {
+            config_change_flag: false,
+            config : AppDataConfig {
                 config_path : None,
             }
         }
