@@ -7,6 +7,7 @@ pub type Result<T> = std::result::Result<T, AppDataError>;
 #[derive(Debug)]
 pub enum AppDataError {
     BrokenConfig,
+    InvalidConfigPath,
     Io(std::io::Error),
 }
 
@@ -51,6 +52,11 @@ impl AppData {
             Some(path) => Some(std::fs::canonicalize(path)?),
             None => None,
         };
+        if let Some(config_path) = new_config_path.clone() {
+            if config_path.is_dir() {
+                return Err(AppDataError::InvalidConfigPath)
+            }
+        }
         if new_config_path != self.raw.config_path {
             self.raw.config_path = new_config_path;
             self.change_flag = true;
