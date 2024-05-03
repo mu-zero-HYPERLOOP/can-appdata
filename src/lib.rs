@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use canzero_config::config::NetworkRef;
 use serde::{Deserialize, Serialize};
 
 pub type Result<T> = std::result::Result<T, AppDataError>;
@@ -19,10 +20,9 @@ impl From<std::io::Error> for AppDataError {
 
 #[derive(Clone)]
 pub struct AppData {
-    config_change_flag : bool,
-    config : AppDataConfig,
+    config_change_flag: bool,
+    config: AppDataConfig,
 }
-
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AppDataConfig {
@@ -38,16 +38,16 @@ impl AppData {
                 eprintln!("{err:?}");
                 AppDataError::BrokenConfig
             })?;
-            Ok(AppData{
-                config_change_flag : false,
-                config : appdata_raw,
+            Ok(AppData {
+                config_change_flag: false,
+                config: appdata_raw,
             })
         } else {
             Ok(Self::default())
         }
     }
 
-    pub fn dir() -> PathBuf{
+    pub fn dir() -> PathBuf {
         let mut appdata_path = dirs::home_dir().expect("No home directory avaiable on the OS");
         appdata_path.push(".canzero");
         appdata_path
@@ -60,7 +60,7 @@ impl AppData {
         };
         if let Some(config_path) = new_config_path.clone() {
             if config_path.is_dir() {
-                return Err(AppDataError::InvalidConfigPath)
+                return Err(AppDataError::InvalidConfigPath);
             }
         }
         if new_config_path != self.config.config_path {
@@ -90,6 +90,19 @@ impl AppData {
         }
         Ok(())
     }
+
+    pub fn config(&self) -> canzero_yaml::errors::Result<NetworkRef> {
+        match self.get_config_path() {
+            Some(path) => canzero_yaml::parse_yaml_config_from_file(
+                path.to_str()
+                    .expect("non utf file paths are not supported by CANzero"),
+            ),
+            None => Err(canzero_yaml::errors::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "No config file specified".to_owned(),
+            ))),
+        }
+    }
 }
 
 impl Drop for AppData {
@@ -111,9 +124,7 @@ impl Default for AppData {
     fn default() -> Self {
         Self {
             config_change_flag: false,
-            config : AppDataConfig {
-                config_path : None,
-            }
+            config: AppDataConfig { config_path: None },
         }
     }
 }
