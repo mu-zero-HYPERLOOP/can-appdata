@@ -112,6 +112,21 @@ impl AppData {
             .into()),
         }
     }
+
+    pub fn config_files(&self) -> Result<Vec<PathBuf>> {
+        match self.get_config_path() {
+            Some(path) => canzero_yaml::parse_yaml_config_files_from_file(
+                path.to_str()
+                    .expect("non utf file paths are not supported by CANzero"),
+            )
+            .map_err(|err| AppDataError::ConfigError(err)),
+            None => Err(canzero_yaml::errors::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "No config file specified".to_owned(),
+            ))
+            .into()),
+        }
+    }
 }
 
 impl Drop for AppData {
