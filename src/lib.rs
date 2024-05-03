@@ -10,6 +10,13 @@ pub enum AppDataError {
     BrokenConfig,
     InvalidConfigPath,
     Io(std::io::Error),
+    ConfigError(canzero_yaml::errors::Error),
+}
+
+impl From<canzero_yaml::errors::Error> for AppDataError {
+    fn from(value: canzero_yaml::errors::Error) -> Self {
+        AppDataError::ConfigError(value)
+    }
 }
 
 impl From<std::io::Error> for AppDataError {
@@ -91,16 +98,18 @@ impl AppData {
         Ok(())
     }
 
-    pub fn config(&self) -> canzero_yaml::errors::Result<NetworkRef> {
+    pub fn config(&self) -> Result<NetworkRef> {
         match self.get_config_path() {
             Some(path) => canzero_yaml::parse_yaml_config_from_file(
                 path.to_str()
                     .expect("non utf file paths are not supported by CANzero"),
-            ),
+            )
+            .map_err(|err| AppDataError::ConfigError(err)),
             None => Err(canzero_yaml::errors::Error::Io(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 "No config file specified".to_owned(),
-            ))),
+            ))
+            .into()),
         }
     }
 }
